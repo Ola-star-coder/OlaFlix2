@@ -1,52 +1,86 @@
 import { useState, useEffect } from "react";
-import MovieCard from "./MovieCard";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import './App.css';
-import SearchIcon from './search.svg';
-const API_URL = 'https://www.omdbapi.com/?apikey=d737adc4';
-const movie1 = {
-  "Title": "Batman & Robin",
-  "Year": "1997",
-  "imdbID": "tt0118688",
-  "Type": "movie",
-  "Poster": "https://m.media-amazon.com/images/M/MV5BYzU3ZjE3M2UtM2E4Ni00MDI5LTkyZGUtOTFkMGIyYjNjZGU3XkEyXkFqcGc@._V1_SX300.jpg"
-}
+import { API_BASE, API_KEY } from './api';
 
-const App = () => {
-  const [movies, setMovies] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const searchMovies = async (title) =>{
-   const response = await fetch(`${API_URL}&s=${title}`);
-   const data = await response.json();
-   setMovies(data.Search);
-  }
+import Header from "./components/Header"; 
+import Sidebar from "./components/Sidebar";
+import MovieDetail from "./MovieDetail";
+import Bookmarks from "./Bookmarks";
+import HomePage from "./pages/HomePage";  
+import GenrePage from "./pages/GenrePage"; 
+
+// Whole app structure is passed here
+const AppContent = () => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [genres, setGenres] = useState([]);
+  const location = useLocation(); 
+
+  const [bookmarks, setBookmarks] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('bookmarks') || '[]'); }
+    catch (e) { return []; }
+  });
+
   useEffect(() => {
-    searchMovies('Batman');
+    localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
+  }, [bookmarks]);
+
+  const toggleBookmark = (movie) => {
+    setBookmarks((prev) => {
+      const exists = prev.some((m) => m.id === movie.id);
+      if (exists) return prev.filter((m) => m.id !== movie.id);
+      return [{ id: movie.id, title: movie.title, poster_path: movie.poster_path, release_date: movie.release_date, vote_average: movie.vote_average, backdrop_path: movie.backdrop_path }, ...prev];
+    });
+  };
+
+  useEffect(() => {
+    const fetchGenres = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/genre/movie/list?api_key=${API_KEY}&language=en-US`);
+        const data = await res.json();
+        setGenres(data.genres || []);
+      } catch (e) { console.error('Failed to load genres', e); }
+    };
+    fetchGenres();
   }, []);
 
 
-  return(
-   <div className="app">
-    <h1>Olaflix</h1>
-    <div className="search">
-      <input placeholder="Search for movies"  value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-      <img src={SearchIcon} alt="search" onClick={() => searchMovies(searchTerm)}/>
-    </div>
+  return (
+    // sidebar and main content
+    <div className="app">
+      <Sidebar 
+        menuOpen={menuOpen} 
+        setMenuOpen={setMenuOpen} 
+        genres={genres} 
+        bookmarks={bookmarks}
+        activeGenre={new URLSearchParams(location.search).get('name')} 
+       />
 
-    {
-      movies?.length > 0 ? (
-         <div className="container">
-       {movies.map((movie) => (
-        <MovieCard movie={movie} />
-       ))}
+      <div className="main-content">
+      <Header setMenuOpen={setMenuOpen} />
+        <Routes>
+           <Route path="/" element={<HomePage toggleBookmark={toggleBookmark} bookmarks={bookmarks} />} />
+           <Route path="/genre/:genreId" element={<GenrePage toggleBookmark={toggleBookmark} bookmarks={bookmarks} />} />
+           <Route path="/search" element={<GenrePage toggleBookmark={toggleBookmark} bookmarks={bookmarks} isSearch={true} />} />
+           <Route path="/movie/:id" element={<MovieDetail toggleBookmark={toggleBookmark} bookmarks={bookmarks} />} />
+           <Route path="/bookmarks" element={
+                 <div style={{paddingTop: '0.4rem'}}>
+                    <div className="section-title"><h2>Bookmarks</h2></div>
+                    <Bookmarks bookmarks={bookmarks} toggleBookmark={toggleBookmark} />
+                 </div>
+            } />
+        </Routes>
+      </div>
     </div>
-      ) : (
-        <div className="empty">
-          <h2>No movies found, Try a new one</h2>
-        </div>
-      )
-    }
-  </div>
   );
+}
+
+const App = () => {
+    return (
+        <Router>
+            <AppContent />
+        </Router>
+    )
 }
 
 export default App;
