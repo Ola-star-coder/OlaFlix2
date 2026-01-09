@@ -2,7 +2,7 @@
   "name": "my-app",
   "private": true,
   "version": "0.0.0",
-  "homepage": "https://Ola-star-coder.github.io/OlaFlix2",
+  "homepage": "https://Ola-star-coder.github.io/OlaFlix2/my-app",
   "type": "module",
   "scripts": {
     "dev": "vite",
